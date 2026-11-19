@@ -1,7 +1,7 @@
 /* AptFit Coach service worker — offline app shell.
    The app is one self-contained file (CSS/JS/icons are inlined), so caching it makes the whole app work offline.
    Bump CACHE when you publish a new index.html. */
-const CACHE = 'aptfit-v5-3';
+const CACHE = 'aptfit-v5-4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
