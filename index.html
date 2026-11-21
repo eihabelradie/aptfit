@@ -577,6 +577,11 @@ button.liftspark { pointer-events: auto; padding: 0; border: 0; background: tran
 .bcrow.on { background: rgb(var(--c-accent) / .06); border-color: rgb(var(--c-accent) / .3); }
 .bcrow .vidrow { margin-top: 4px; }
 
+/* v5.6.1: Watch form is the first thing under the exercise name; Back Care first card in the session */
+.actrow .vidbtn, .excard .vidrow .vidbtn { min-height: 46px; padding: 10px 18px 10px 14px; font-size: 14px; box-shadow: inset 0 0 0 1px rgb(var(--c-accent) / .25); }
+.bcrow .vidbtn { min-height: 44px; }
+.bc-first { box-shadow: inset 0 0 0 1.5px rgb(var(--c-accent) / .35); }
+
   </style>
 </head>
 <body class="bg-bg text-ink antialiased min-h-screen">
@@ -1418,6 +1423,7 @@ function exMeta(ex) {
   if (kind === 'bw') m.wLabel = 'BW + lb (optional)';
   if (kind === 'time') { m.hasW = false; m.rLabel = 'Seconds'; m.rStep = 5; }
   if (kind === 'cardio') { m.wLabel = 'Incline %'; m.rLabel = 'Minutes'; m.wStep = 0.5; m.unitW = '%'; }
+  if (kind === 'cardio' && /bike|elliptical/.test(ex.id)) { m.wLabel = 'Level'; m.wStep = 1; m.unitW = ''; m.level = true; } // v5.6.1: bikes/elliptical use resistance level, not incline
   return m;
 }
 
@@ -2351,7 +2357,7 @@ function prefill(iso, ex, meta, i) {
 function fmtSet(s, meta) {
   if (!s || (s.w === '' && s.r === '')) return '—';
   if (meta.kind === 'time') return `${s.r || '?'}s`;
-  if (meta.kind === 'cardio') return `${s.r || '?'} min${s.w !== '' ? ' @ ' + s.w + '%' : ''}`;
+  if (meta.kind === 'cardio') return `${s.r || '?'} min${s.w !== '' ? (meta.level ? ' @ level ' + s.w : ' @ ' + s.w + '%') : ''}`;
   if (meta.kind === 'bw') return `${s.r || '?'} reps${s.w !== '' && +s.w > 0 ? ' · BW + ' + s.w + ' lb' : ''}`;
   return `${s.w !== '' ? s.w : '?'} × ${s.r !== '' ? s.r : '?'}`;
 }
@@ -2380,7 +2386,7 @@ function getHintBase(iso, ex, meta) {
   const w = ws.length ? Math.max(...ws) : 0, full = rs.length >= ex.sets, allTop = full && rs.every(r => r >= meta.hi), anyLow = rs.some(r => r < meta.lo);
   const when = fromToday ? 'Today' : 'Last time';
   if (meta.kind === 'time') return allTop ? { tone: 'up', text: `${when} you held ${meta.hi}s on every set. Next time aim for ${meta.hi + 10}s.` } : { tone: 'hold', text: `Build to ${meta.hi}s on every set — add 5s each session.` };
-  if (meta.kind === 'cardio') return rs[0] >= meta.hi ? { tone: 'up', text: `${when}: ${rs[0]} min. Next time add +0.5–1% incline or +2 minutes.` } : { tone: 'hold', text: `Build up to ${meta.hi} min, then raise the incline a notch.` };
+  if (meta.kind === 'cardio') return rs[0] >= meta.hi ? { tone: 'up', text: `${when}: ${rs[0]} min. Next time add ${meta.level ? '+1 resistance level' : '+0.5–1% incline'} or +2 minutes.` } : { tone: 'hold', text: `Build up to ${meta.hi} min, then raise the ${meta.level ? 'resistance a level' : 'incline a notch'}.` };
   if (meta.kind === 'bw') return allTop ? { tone: 'up', text: `${when}: top of range on every set. Level up — slower 3-sec lowering, a 1-sec pause, or hold a dumbbell.` } : { tone: 'hold', text: `Aim for ${ex.sets} × ${meta.hi} clean reps, then make it harder.` };
   if (!w) return { tone: 'info', text: `Log your weight each set to unlock "go up" suggestions. Target ${ex.sets} × ${tgt}.` };
   if (meta.kind === 'db' && w >= DB_CAP && LOWER_DB_RE.test(ex.name)) return { tone: 'up', text: `You've reached the ${DB_CAP} lb dumbbell limit — don't chase more weight. Lower for a slow 3-second count, pause 1 second at the bottom, or switch to a single-leg version.` };
@@ -2475,10 +2481,10 @@ function exerciseInfoHTML(iso, ex, bucket, ctx) {
   const canSwap = SWAP_GROUPS.some(g => g.includes(ex._orig || ex.id)), swapped = !!ex._orig;
   const origName = swapped && EXLIB[ex._orig] ? EXLIB[ex._orig].name : '';
   const hintHTML = `<div class="hint ${hint.tone}">${ic(icn, 'w-[18px] h-[18px] mt-px')}<div class="flex-1 min-w-0"><span>${esc(hint.text)}</span>${hint.applyW ? `<button onclick="applySuggestedWeight('${iso}','${ex.id}',${hint.applyW})" class="btn btn-sm btn-primary mt-2">Use ${hint.applyW} lb</button>` : ''}</div></div>`;
-  const actionsHTML = `<div class="flex items-center gap-2 flex-wrap actrow" data-testid="ex-actions">      ${canSwap ? `<button class="btn btn-sm btn-ghost" data-act="swap" onclick="openSwapSheet('${iso}','${ex.id}')">${ic('swap', 'w-4 h-4')}Machine busy? Swap</button>` : ''}
-      <button class="btn btn-sm btn-soft" onclick="openExerciseHistory('${ex.id}')">${ic('history', 'w-4 h-4')}History</button>${videoChipsHTML(ex)}</div>`;
+  const actionsHTML = `<div class="flex items-center gap-2 flex-wrap actrow" data-testid="ex-actions">${videoChipsHTML(ex)}${canSwap ? `<button class="btn btn-sm btn-ghost" data-act="swap" onclick="openSwapSheet('${iso}','${ex.id}')">${ic('swap', 'w-4 h-4')}Machine busy? Swap</button>` : ''}
+      <button class="btn btn-sm btn-soft" onclick="openExerciseHistory('${ex.id}')">${ic('history', 'w-4 h-4')}History</button></div>`;
   const warm = warmupHTML(iso, ex);
-  return `${ctx === 'session' ? actionsHTML + hintHTML + warm : ''}
+  return `${ctx === 'session' ? actionsHTML + hintHTML + warm : videoRowHTML(ex)}
     <div class="diagram-wrap">
       ${diagramLabel(ex.illustration)}<button type="button" class="diagram" onclick="openExerciseModal('${ex.id}')" aria-label="Enlarge machine diagram for ${esc(ex.name)}">${diagramInner(ex.illustration, ex.name)}<span class="zoom">${ic('arrowUR', 'w-3.5 h-3.5', 2.4)}</span></button>
       <div class="spot"><span class="spot-ic">${ic('eye', 'w-4 h-4', 2.1)}</span><div class="min-w-0"><p class="label-xs !text-amberink">Spot it in your gym</p><p class="text-[13px] leading-snug font-medium text-ink">${ex.spotCue}</p></div></div>
@@ -2638,6 +2644,7 @@ function renderRestDayView(iso, key) {
 function startWorkout(iso) {
   unlockAudio();
   const r = resolveRoutine(iso); if (!r) return;
+  if (typeof backBlocksLifting === 'function' && backBlocksLifting(iso)) { closeSheet(); renderApp(); openBackCare(iso); showToast('Back Care only today — skip the weights'); return; }
   const s = appState.session;
   if (s && s.active && s.date === iso) { s.minimized = false; }
   else {
@@ -2678,6 +2685,7 @@ function renderSession(scrollTop) {
     <div class="seg-row">${segs}</div>
     <div id="sessBody" class="sess-body">
       <div class="px-4 pt-3 pb-4 space-y-3.5 max-w-xl mx-auto">
+        ${typeof backSessionHTML === 'function' ? backSessionHTML(iso, r) : ''}
         ${sessionOrderHTML(s, r, bucket)}
         <div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-[12.5px] font-semibold text-accentink tnum">Exercise ${s.idx + 1} of ${r.exercises.length} · ${ex.sets} × ${esc(ex.reps)}</p><h2 class="text-[24px] leading-8 font-bold tracking-tight text-ink mt-0.5">${ex.name}</h2>${setupPillHTML(ex) ? `<div class="mt-2">${setupPillHTML(ex)}</div>` : ''}${dayChipsHTML(r)}</div>${typeof liftSparkHTML === 'function' ? liftSparkHTML(ex.id, { link: true, w: 96, h: 32 }) : ''}</div>
         ${exerciseInfoHTML(iso, ex, bucket, 'session')}
@@ -2872,10 +2880,11 @@ function sessionOrderSteps(s, r, bucket) {
   const pre = s.pre || {}, total = core.reduce((n, e) => n + e.sets, 0), done = core.reduce((n, e) => n + exDoneCount(bucket, e), 0);
   const first = core[0];
   const steps = [
-    { k: 'warm', h: 'Back Care warm-up · 8–10 min', t: 'McGill curl-up, side plank, bird dog, dead bug, banded bridge and walks, hip flexor stretch. Tap Back Care on Home or Train to follow it.', on: !!pre.warm || (typeof backCareComplete === 'function' && backCareComplete(s.date)), manual: true },
+    { k: 'warm', h: 'Back Care warm-up · 8–10 min', t: 'First, before any lift: 2–3 min easy walk or bike, then McGill curl-up, side plank, bird dog, dead bug, banded bridge, band walks, hip flexor stretch.', on: !!pre.warm || (typeof backCareComplete === 'function' && backCareComplete(s.date)), manual: true },
     { k: 'lights', h: 'Light sets · first lift', t: `1–2 easy sets of ${first ? first.name : 'your first lift'} at about half your working weight.`, on: !!pre.lights, manual: true },
     { k: 'lift', h: 'Lift', t: `${core.length} exercises · ${done}/${total} sets`, on: total > 0 && done >= total, manual: false }
   ];
+  if (r.type === 'gym' && typeof backFinDone === 'function') steps.push({ k: 'bfin', h: 'Back Care finishers · optional', t: 'After your last lift: banded clamshell, band Pallof press or banded abduction.', on: backFinDone(s.date), manual: false });
   if (fin) steps.push({ k: 'fin', h: 'Zone-2 finisher · optional', t: '15–25 min easy bike or elliptical (or a 5–8% incline walk) — you can still talk in full sentences.', on: exDone(bucket, fin), manual: false });
   steps.push({ k: 'stretch', h: 'Stretch · 5 min', t: 'Static holds, about 30 seconds each: chest, lats, quads, hamstrings, hips.', on: !!pre.stretch, manual: true });
   return steps;
@@ -2888,7 +2897,7 @@ function sessionOrderHTML(s, r, bucket) {
     ${open ? `<div class="sorder-body">${steps.map(x => `<div class="srow ${x.on ? 'on' : ''}">${x.manual
       ? `<button class="schk ${x.on ? 'on' : ''}" onclick="toggleOrderStep('${x.k}')" aria-pressed="${x.on}" aria-label="${esc(x.h)}">${x.on ? ic('check', 'w-3.5 h-3.5', 3.2) : ''}</button>`
       : `<span class="schk auto ${x.on ? 'on' : ''}">${x.on ? ic('check', 'w-3.5 h-3.5', 3.2) : ''}</span>`}<div class="min-w-0"><p class="text-[13.5px] font-semibold text-ink leading-snug">${esc(x.h)}</p><p class="text-[12px] text-mute leading-snug">${esc(x.t)}</p></div></div>`).join('')}
-      <div class="flex items-center gap-4"><button class="link !px-0 !py-1 text-[12px]" onclick="openGuide('session')">Why this order?</button><button class="link !px-0 !py-1 text-[12px]" data-act="stretch-start" onclick="startStretch()">Start guided stretch</button></div></div>` : ''}</div>`;
+      <div class="flex items-center gap-4"><button class="link !px-0 !py-1 text-[12px]" data-act="order-backcare" onclick="openBackCare(appState.session.date)">Open Back Care</button><button class="link !px-0 !py-1 text-[12px]" onclick="openGuide('session')">Why this order?</button><button class="link !px-0 !py-1 text-[12px]" data-act="stretch-start" onclick="startStretch()">Start guided stretch</button></div></div>` : ''}</div>`;
 }
 function toggleOrderOpen() {
   const s = appState.session; if (!s || !s.active) return;
@@ -4308,7 +4317,7 @@ function saveFitNote() {
 // The user deploys drive-sync/Code.gs once; the app stores the /exec URL (appState.appsScriptUrl) and a secret token
 // (appState.sync.token). Local data is never touched unless the user confirms a restore (and a safety copy is kept).
 // =========================================================================
-const APP_VERSION = '5.6';
+const APP_VERSION = '5.6.1';
 const APPS_SCRIPT_CODE = "/**\n * AptFit Coach \u2014 Google Drive backup & sync (Google Apps Script web app)\n * ---------------------------------------------------------------------\n * Deploy once (see SETUP.md). It stores your whole app (workouts, weights, meals,\n * settings AND your own machine photos) in your Drive:\n *\n *   My Drive / AptFit / aptfit_backup.json            <- always the newest backup\n *   My Drive / AptFit / aptfit_backup_YYYY-MM-DD.json <- one snapshot per day, last 10 kept\n *\n * Endpoints (the app calls these; every call needs your secret token):\n *   GET  -> harmless \"alive\" message (no data, no token)\n *   POST (text/plain JSON body, token INSIDE the body \u2014 never in the URL):\n *     {token, action:'meta'}                      -> when/what was last saved + the list of daily versions\n *     {token, action:'latest'}                    -> the newest backup (meta + state)\n *     {token, action:'version', name:'aptfit_backup_2026-11-18.json'} -> an older snapshot\n *     {token, action:'save', state, clientId, baseSavedAt, force}      -> save\n *\n * CORS: the app POSTs with Content-Type text/plain, so the browser sends no preflight;\n * Apps Script answers with a redirect to script.googleusercontent.com which allows CORS reads.\n *\n * Safety: a save is refused (conflict) if the cloud copy was changed by another device since\n * this device last synced \u2014 unless the app sends force:true after you confirm.\n */\nvar FOLDER_NAME = 'AptFit';\nvar LATEST_NAME = 'aptfit_backup.json';\nvar VERSION_PREFIX = 'aptfit_backup_';\nvar KEEP_VERSIONS = 10;\nvar MAX_BYTES = 12 * 1024 * 1024;       // refuse absurd uploads (the app keeps backups under ~8 MB by shrinking photos)\nvar PROP_TOKEN = 'APTFIT_TOKEN';\nvar PROP_META = 'APTFIT_META';\n\n/** RUN THIS ONCE from the editor (select \"setup\" in the toolbar, press Run). */\nfunction setup() {\n  var props = PropertiesService.getScriptProperties();\n  var token = props.getProperty(PROP_TOKEN);\n  if (!token) {\n    token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');\n    props.setProperty(PROP_TOKEN, token);\n  }\n  var folder = getFolder_();\n  Logger.log('==== AptFit setup complete ====');\n  Logger.log('SECRET TOKEN (paste this into the app):');\n  Logger.log(token);\n  Logger.log('Drive folder: ' + folder.getUrl());\n  Logger.log('Next: Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).');\n  return token;\n}\n\n/** Run if you ever need to see the token again. */\nfunction showToken() {\n  Logger.log('SECRET TOKEN: ' + (PropertiesService.getScriptProperties().getProperty(PROP_TOKEN) || '(not set \u2014 run setup first)'));\n}\n\n/** Run to invalidate the old token and make a new one (then paste the new one into the app). */\nfunction resetToken() {\n  PropertiesService.getScriptProperties().deleteProperty(PROP_TOKEN);\n  setup();\n}\n\n/** GET never returns data and never takes a token \u2014 it only says the script is alive (handy to check the URL in a browser). */\nfunction doGet() {\n  return json_({ ok: true, service: 'AptFit sync', hint: 'Open the AptFit app to use this URL. Requests need the secret token and are sent as POST.' });\n}\n\n/** Everything (read AND write) is a POST whose body carries the token, so the token never appears in a URL. */\nfunction doPost(e) {\n  var lock = LockService.getScriptLock();\n  try {\n    lock.waitLock(20000);\n  } catch (err) {\n    return json_({ ok: false, error: 'busy' });\n  }\n  try {\n    var raw = (e && e.postData && e.postData.contents) || '';\n    if (raw.length > MAX_BYTES) return json_({ ok: false, error: 'too_big' });\n    var body = JSON.parse(raw);\n    var auth = checkToken_(body.token);\n    if (auth) return json_({ ok: false, error: auth });\n    var action = body.action || 'meta';\n\n    if (action === 'meta' || action === 'ping') {\n      return json_({ ok: true, meta: readMeta_(), versions: listVersions_(), serverTime: new Date().toISOString() });\n    }\n    if (action === 'latest') {\n      var f = findFile_(LATEST_NAME);\n      if (!f) return json_({ ok: true, empty: true });\n      var env = JSON.parse(f.getBlob().getDataAsString());\n      return json_({ ok: true, meta: env.meta || readMeta_(), state: env.state });\n    }\n    if (action === 'version') {\n      var name = String(body.name || '');\n      if (name.indexOf(VERSION_PREFIX) !== 0 || !/^[A-Za-z0-9_.\\-]+$/.test(name)) return json_({ ok: false, error: 'bad_name' });\n      var vf = findFile_(name);\n      if (!vf) return json_({ ok: false, error: 'not_found' });\n      var venv = JSON.parse(vf.getBlob().getDataAsString());\n      return json_({ ok: true, meta: venv.meta, state: venv.state });\n    }\n    if (action === 'save') return save_(body);\n    return json_({ ok: false, error: 'bad_action' });\n  } catch (err) {\n    return json_({ ok: false, error: 'server_error', detail: String(err) });\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction save_(body) {\n  if (!body.state || typeof body.state !== 'object') return json_({ ok: false, error: 'no_state' });\n  var cur = readMeta_();\n  if (cur && !body.force && body.baseSavedAt !== cur.savedAt) {\n    // someone else (or a fresh install) is about to overwrite a cloud copy it has never seen\n    return json_({ ok: false, error: 'conflict', meta: cur });\n  }\n  var now = new Date();\n  var meta = {\n    savedAt: now.toISOString(),\n    clientId: String(body.clientId || '').slice(0, 64),\n    device: String(body.device || '').slice(0, 80),\n    appVersion: String(body.appVersion || '').slice(0, 20),\n    counts: body.counts && typeof body.counts === 'object' ? body.counts : {}\n  };\n  var text = JSON.stringify({ meta: meta, state: body.state });\n  writeFile_(LATEST_NAME, text);\n  var day = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd');\n  writeFile_(VERSION_PREFIX + day + '.json', text);          // same-day saves overwrite the day's snapshot\n  pruneVersions_();\n  PropertiesService.getScriptProperties().setProperty(PROP_META, JSON.stringify(meta));\n  return json_({ ok: true, meta: meta, versions: listVersions_(), bytes: text.length });\n}\n\n// ---------------------------------------------------------------- helpers\nfunction json_(obj) {\n  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction checkToken_(given) {\n  var real = PropertiesService.getScriptProperties().getProperty(PROP_TOKEN);\n  if (!real) return 'not_setup';\n  given = String(given || '');\n  if (given.length !== real.length) return 'bad_token';\n  var diff = 0;                                   // constant-time compare\n  for (var i = 0; i < real.length; i++) diff |= real.charCodeAt(i) ^ given.charCodeAt(i);\n  return diff === 0 ? '' : 'bad_token';\n}\n\nfunction getFolder_() {\n  var it = DriveApp.getFoldersByName(FOLDER_NAME);\n  return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER_NAME);\n}\n\nfunction findFile_(name) {\n  var it = getFolder_().getFilesByName(name);\n  return it.hasNext() ? it.next() : null;\n}\n\nfunction writeFile_(name, text) {\n  var f = findFile_(name);\n  if (f) f.setContent(text); else getFolder_().createFile(name, text, 'application/json');\n}\n\nfunction readMeta_() {\n  var m = PropertiesService.getScriptProperties().getProperty(PROP_META);\n  if (m) { try { return JSON.parse(m); } catch (e) { /* fall through */ } }\n  var f = findFile_(LATEST_NAME);                  // meta missing (e.g. file placed by hand): derive from the file\n  if (!f) return null;\n  try { return JSON.parse(f.getBlob().getDataAsString()).meta || { savedAt: f.getLastUpdated().toISOString() }; }\n  catch (e) { return { savedAt: f.getLastUpdated().toISOString() }; }\n}\n\nfunction listVersions_() {\n  var out = [], it = getFolder_().getFiles();\n  while (it.hasNext()) {\n    var f = it.next(), n = f.getName();\n    if (n.indexOf(VERSION_PREFIX) === 0 && n !== LATEST_NAME) out.push({ name: n, updated: f.getLastUpdated().toISOString(), bytes: f.getSize() });\n  }\n  out.sort(function (a, b) { return a.name < b.name ? 1 : -1; });   // newest day first\n  return out;\n}\n\nfunction pruneVersions_() {\n  var v = listVersions_();\n  for (var i = KEEP_VERSIONS; i < v.length; i++) {\n    var f = findFile_(v[i].name);\n    if (f) f.setTrashed(true);\n  }\n}\n";
 const SYNC_URL_RE = /^https:\/\/script\.google\.com\/[\w\-\/]*\/exec\/?$/;
 const SYNC_ERR = {
@@ -5437,6 +5446,15 @@ window.addEventListener('resize', closeInfo);
 // APP_VERSION lives in m9.js; settings.lastSeenVersion remembers what this device last showed.
 // =========================================================================
 const CHANGELOG = [
+  { v: '5.6.1', date: 'Nov 20, 2026', hi: [
+      'A short form video for every exercise the app can show: all routines, swaps, no-gym moves, Back Care, the 12-week progressions and cardio',
+      'Watch form now sits right under the exercise name in the guided session and on every open exercise card',
+      'Back Care opens first in the guided session, before your first lift; the band finishers come after your lifts',
+      'A pain 6+ (or sharp / leg-symptom) day is Back Care only, whichever button you press'], notes: [
+      'Replaced long or less-exact videos: Pallof press (cable and band), McGill bird dog, 360° brace, monster and lateral band walks, chest-supported incline row, supported contralateral split squat, box squat and glute bridge at home.',
+      'Added side plank on feet (week 5+) and single-leg bridge (week 4+) demos; RDL videos say where to stop (just below the knee, then mid-shin).',
+      'Bike and elliptical log a resistance level instead of an incline.',
+      'No saved-data changes.'] },
   { v: '5.6', date: 'Nov 20, 2026', hi: [
       'Back-safe program for your L4–L5: no deadlifts, swings, bent-over or standing heavy overhead work; supported rows, box squats to parallel, bench-supported split squats and glute bridges instead',
       'Back Care: an 8–10 min band, glute and core routine (McGill curl-up, side plank, bird dog, dead bug, banded bridge and walks, hip flexor stretch) with form videos',
@@ -5543,7 +5561,7 @@ function versionBoot() {
 function showWhatsNew(from) {
   const cur = CHANGELOG.find(c => c.v === APP_VERSION) || CHANGELOG[0];
   openSheet(`<div class="sheet-head"><div class="min-w-0"><p class="label-xs text-accentink flex items-center gap-1.5">${ic('sparkle', 'w-3.5 h-3.5')}What’s new</p><h3 class="!text-[21px] leading-7 mt-0.5" data-testid="whatsnew-title">Updated from v${esc(from)} to v${esc(APP_VERSION)}</h3></div><button class="icon-btn" onclick="closeSheet()" aria-label="Close">${ic('x')}</button></div>
-    <ul class="space-y-2.5" data-testid="whatsnew">${cur.hi.slice(0, 5).map(t => `<li class="flex gap-3 items-start"><span class="wn-dot">${ic('check', 'w-3.5 h-3.5', 3)}</span><span class="text-[14.5px] leading-snug text-ink">${esc(t)}</span></li>`).join('')}</ul>
+    <ul class="space-y-2.5" data-testid="whatsnew">${(() => { const skipped = CHANGELOG.filter(c => c !== cur && verCmp(c.v, from) > 0 && verCmp(c.v, APP_VERSION) < 0).map(c => c.hi[0]); return cur.hi.concat(skipped).slice(0, 5); })().map(t => `<li class="flex gap-3 items-start"><span class="wn-dot">${ic('check', 'w-3.5 h-3.5', 3)}</span><span class="text-[14.5px] leading-snug text-ink">${esc(t)}</span></li>`).join('')}</ul>
     <div class="grid gap-2 mt-4"><button class="btn btn-primary" data-act="whatsnew-all" onclick="openChangelog()">See all changes</button><button class="btn btn-ghost" data-act="whatsnew-ok" onclick="closeSheet()">Got it</button></div>`);
 }
 function openChangelog() { verUI.open = true; openSettings(); setTimeout(() => { const el = $('changelog'); if (el) el.scrollIntoView({ block: 'start' }); }, 80); }
@@ -5606,7 +5624,7 @@ function videosFor(ex) {
   if (mine && /^[\w-]{11}$/.test(mine.id)) return [{ id: mine.id, title: 'Your video', channel: 'Your own link', label: '', portrait: !!mine.portrait, mine: true }];
   const raw = (FORM_VIDEOS[ex.id] || (typeof BACK_VIDEOS !== 'undefined' && BACK_VIDEOS[ex.id]) || FORM_VIDEOS_N[normExName(ex.name)] || []).filter(r => Array.isArray(r) && /^[\w-]{11}$/.test(r[2]));
   const parts = String(ex.name).split(/\s+\+\s+/);
-  return raw.map((r, i, a) => ({ id: r[2], title: r[0], channel: r[1], label: a.length > 1 && parts.length === a.length ? parts[i] : '', portrait: false }));
+  return raw.map((r, i, a) => ({ id: r[2], title: r[0], channel: r[1], label: r[3] || (a.length > 1 && parts.length === a.length ? parts[i] : ''), portrait: false }));
 }
 // chips: one "Watch form" per movement; exercises without a video get "Add form video" (paste your own link)
 function videoChipsHTML(ex) {
@@ -6030,17 +6048,17 @@ function launchActionFromURL() {
 //                           appState.backPlan = { start: iso }  (week 1 of the 12-week plan)
 // =========================================================================
 const BACK_CARE = [
-  { id: 'bc_brace', name: 'Pelvic Tilt + 360° Brace', dose: () => '8 slow reps · 5-s hold', kind: 'bw', cue: 'On your back, knees bent. Breathe low and wide into your belly, sides and back, then gently tilt your pelvis so your low back meets the floor and brace. Hold 5 seconds while breathing, relax. No straining, no breath-holding.', vids: [['How to Do Pelvic Tilts: A Guide from Physical Therapists', 'Hinge Health', 'N3OQinBE5Ac'], ['Try 360 breathing for your back pain', 'Dr. Christina - The Picky PT', '7EB8UCsmlXw']] },
+  { id: 'bc_brace', name: 'Pelvic Tilt + 360° Brace', dose: () => '8 slow reps · 5-s hold', kind: 'bw', cue: 'On your back, knees bent. Breathe low and wide into your belly, sides and back, then gently tilt your pelvis so your low back meets the floor and brace. Hold 5 seconds while breathing, relax. No straining, no breath-holding.', vids: [['How to Do Pelvic Tilts: A Guide from Physical Therapists', 'Hinge Health', 'N3OQinBE5Ac', 'Pelvic Tilt'], ['Hooklying 360 Breathing + TA Contraction', 'Resilience RX Physical Therapy', 'J2xegxcJaaQ', '360° Brace']] },
   { id: 'bc_curlup', name: 'McGill Curl-Up', dose: w => w <= 4 ? '2 × 8–10-s holds each leg · pyramid 5-3-1' : '2 × 10-s holds each leg', kind: 'time', cue: 'One knee bent, one leg straight, hands under the small of your back. Brace, then lift only your head and shoulders a couple of centimetres as one unit — chin stays tucked, no crunch. Hold, breathe, lower. Switch legs halfway.', vids: [['McGill Curl Up', 'Zack Henderson', 'A7HH8DivGB0']] },
-  { id: 'bc_sideplank', name: 'Side Plank', dose: w => w <= 4 ? 'On knees · 2 × 15–20 s / side' : 'On feet · 2 × 25–30 s / side', kind: 'time', cue: 'Elbow under your shoulder, body in one straight line from head to knees (or feet from week 5). Hips forward, not sagging or piked. Breathe steadily.', vids: [['Modified Side Plank', 'CU Anschutz Orthopedics', 'Nj_DsGte5Kw']] },
-  { id: 'bc_birddog', name: 'Bird Dog', dose: () => '2 × 6 / side · 5-s holds', kind: 'bw', cue: 'Hands under shoulders, knees under hips, back flat. Reach one arm and the opposite leg out long — no higher than your back, no hip tipping. Hold 5 seconds, sweep back in, switch.', vids: [['Bird Dogs Level 1 - "McGill Big 3"', 'Brian Ellicott - Brisbane Back Pain Program', '0NTYiTOq0Nw']] },
+  { id: 'bc_sideplank', name: 'Side Plank', dose: w => w <= 4 ? 'On knees · 2 × 15–20 s / side' : 'On feet · 2 × 25–30 s / side', kind: 'time', cue: 'Elbow under your shoulder, body in one straight line from head to knees (or feet from week 5). Hips forward, not sagging or piked. Breathe steadily.', vids: [['Modified Side Plank', 'CU Anschutz Orthopedics', 'Nj_DsGte5Kw', 'On knees'], ['How to do a Side Plank | Proper Form & Technique', 'National Academy of Sports Medicine (NASM)', '44ND4bOB-T0', 'On feet · week 5+']] },
+  { id: 'bc_birddog', name: 'Bird Dog', dose: () => '2 × 6 / side · 5-s holds', kind: 'bw', cue: 'Hands under shoulders, knees under hips, back flat. Reach one arm and the opposite leg out long — no higher than your back, no hip tipping. Hold 5 seconds, sweep back in, switch.', vids: [['Stuart McGill Big 3 Exercises: Bird Dog (certified McGill Method Practitioner)', 'InVivo Spine', 'LB3e4JBpNrw']] },
   { id: 'bc_deadbug', name: 'Dead Bug', dose: () => '2 × 8 / side', kind: 'bw', cue: 'Low back gently pressed to the floor, knees over hips. Slowly lower the opposite arm and leg only as far as your back stays down. Exhale as you reach.', vids: [['STOP Doing DEAD BUG Ab Workout Like This!', 'Squat University', 'vgufDyLHcIE']] },
-  { id: 'bc_bridge', name: 'Banded Glute Bridge', dose: w => w >= 4 ? 'Single-leg · 2 × 8 / leg · 2-s pause' : '2 × 12 · 2-s pause', kind: 'bw', cue: 'Mini band above your knees. Tuck your pelvis first, then drive through your heels and push your knees out into the band. Squeeze 2 seconds at the top with ribs down — never arch. From week 4: one leg at a time.', vids: [['Add Resistance To Your Bridge With Banded Glute Bridges', 'Dr. Carl Baird', 'rIYADalJKfY'], ['How to do a Single-Leg Glute Bridge', 'Well+Good', '_K_di6h2-Wg']] },
-  { id: 'bc_walk', name: 'Banded Monster / Lateral Walk', dose: () => '2 × 10 steps each way', kind: 'bw', cue: 'Mini band at your knees or ankles, slight squat, torso tall. Small slow steps, pause on one leg each step, knees out over your toes. No leaning. Socks on carpet keep it silent.', vids: [['MONSTER WALKS: How to do them the RIGHT way', 'Dr. Jenna Loewer', 'CTz6gtnnb6s']] },
+  { id: 'bc_bridge', name: 'Banded Glute Bridge', dose: w => w >= 4 ? 'Single-leg · 2 × 8 / leg · 2-s pause' : '2 × 12 · 2-s pause', kind: 'bw', cue: 'Mini band above your knees. Tuck your pelvis first, then drive through your heels and push your knees out into the band. Squeeze 2 seconds at the top with ribs down — never arch. From week 4: one leg at a time.', vids: [['Add Resistance To Your Bridge With Banded Glute Bridges', 'Dr. Carl Baird', 'rIYADalJKfY', 'Banded bridge'], ['Single Leg Bridge', 'MedStar Health', 'AVAXhy6pl7o', 'Single-leg · week 4+']] },
+  { id: 'bc_walk', name: 'Banded Monster / Lateral Walk', dose: () => '2 × 10 steps each way', kind: 'bw', cue: 'Mini band at your knees or ankles, slight squat, torso tall. Small slow steps, pause on one leg each step, knees out over your toes. No leaning. Socks on carpet keep it silent.', vids: [['Monster Walk Exercise Demonstration', 'MedStar Health', 'snbNxUIUQPc', 'Monster walk'], ['Lateral band walks | Ohio State Sports Medicine', 'Ohio State Wexner Medical Center', '6eoK_yxY8Ak', 'Lateral walk']] },
   { id: 'bc_hipflexor', name: 'Half-Kneeling Hip Flexor Stretch', dose: () => '2 × 30 s / side', kind: 'time', cue: 'One knee on a pad. Squeeze the glute of the down leg and tuck your pelvis under, then shift forward only a little until you feel the front of the hip. Ribs down — do not arch your low back to go further.', vids: [['Half Kneeling Hip Flexor Stretch', 'E3 Rehab Exercise Library', 'vIDzsqJiAIo']] },
   // optional finishers
   { id: 'bc_clam', name: 'Banded Clamshell', dose: () => '2 × 12 / side', kind: 'bw', opt: true, cue: 'Side-lying, knees bent, mini band above the knees, hips stacked. Open the top knee without the pelvis rolling back. Slow.', vids: [['How to do a Clam with an Exercise Band', 'Rehab My Patient', '4T2P_-MV9g0']] },
-  { id: 'bc_pallof', name: 'Band Pallof Press', dose: () => '2 × 10 / side · 2-s hold', kind: 'bw', opt: true, cue: 'Loop band anchored at chest height (door anchor or rack), stand side-on. Press straight out and hold 2 seconds without twisting, then bring it back.', vids: [['How To Do a Pallof Press | Band & Cable Anti-Rotation Core Exercise', 'FITBODY with Julie Lohre', 'LA6Uc5yIV1c']] },
+  { id: 'bc_pallof', name: 'Band Pallof Press', dose: () => '2 × 10 / side · 2-s hold', kind: 'bw', opt: true, cue: 'Loop band anchored at chest height (door anchor or rack), stand side-on. Press straight out and hold 2 seconds without twisting, then bring it back.', vids: [['How to do a Standing Banded Pallof Press', 'TurnFit - Vancouver Personal Trainers', 'y1fOBVtANdM']] },
   { id: 'bc_abduct', name: 'Seated Banded Hip Abduction', dose: () => '2 × 15', kind: 'bw', opt: true, cue: 'Sit tall on a bench, mini band above the knees. Press the knees out, pause, return slowly. Feet stay planted.', vids: [['How To Do A SEATED BANDED HIP ABDUCTION', 'Live Lean TV Daily Exercises', 'DU6W5rVb7zA']] }
 ];
 const BACK_VIDEOS = {}; // separate from the curated FORM_VIDEOS list (checked links)
@@ -6049,20 +6067,55 @@ const BACK_CORE = BACK_CARE.filter(m => !m.opt).map(m => m.id);
 BACK_CARE.forEach(m => { EXLIB[m.id] = { id: m.id, name: m.name, sets: 2, reps: m.dose(1), spotCue: 'Back Care · floor mat + mini band', setupTip: m.cue, illustration: 'home_silent_flow', home: true, backCare: true }; EXKIND[m.id] = m.kind; BACK_VIDEOS[m.id] = m.vids; });
 // gym exercises added in v5.6 get curated form videos too (checked links)
 Object.assign(BACK_VIDEOS, {
-  b_csrow: [['Chest-Supported Dumbbell Row', 'Hart Athletics', '4ytfYSTfyKw']],
+  b_csrow: [['Chest Supported Incline Dumbbell Row', 'OPEX Fitness', '0-DXJiceG-0']],
   b_csrevfly: [['How To Do A Chest Supported Dumbbell Rear Delt Fly', 'Gos Training Systems', 'bTLhyMvJtWE']],
   b_boxsquat: [['Box Goblet Squat', 'OPEX Fitness', 'uzjfcTvgpoc']],
-  b_splitsupp: [['The Best Strength Exercises To Improve Balance | The Assisted Split Squat', 'Dr. Carl Baird', 'o62wfaC-JWU']],
+  b_splitsupp: [['Dumbbell Split Squat (Contralateral, Supported, In Rack)', 'Resolve Performance', 'cFJvAo9mEr4']],
   b_seatcalf: [['How To Do A Seated Calf Raise', 'PureGym', '3ZRe_QpvRPg']],
   b_floorbridge: [['Add Resistance To Your Bridge With Banded Glute Bridges', 'Dr. Carl Baird', 'rIYADalJKfY']],
   b_pullthrough: [['How to PROPERLY Glute Pull Through', 'Colossus Fitness', 'v_L0e-SntSU']],
-  b_rdlelev: [['The PERFECT Dumbbell Romanian Deadlift', 'Andrew Kwong (DeltaBolic)', 'hu3jRvTc_po']],
-  b_rdlshin: [['The PERFECT Dumbbell Romanian Deadlift', 'Andrew Kwong (DeltaBolic)', 'hu3jRvTc_po']],
-  b_pallof: [['How To Do a Pallof Press | Band & Cable Anti-Rotation Core Exercise', 'FITBODY with Julie Lohre', 'LA6Uc5yIV1c']],
+  b_rdlelev: [['The PERFECT Dumbbell Romanian Deadlift', 'Andrew Kwong (DeltaBolic)', 'hu3jRvTc_po', 'DB RDL · stop just below the knee']],
+  b_rdlshin: [['The PERFECT Dumbbell Romanian Deadlift', 'Andrew Kwong (DeltaBolic)', 'hu3jRvTc_po', 'DB RDL · stop at mid-shin']],
+  b_pallof: [['Cable Pallof press (mid body cable)', 'Synergy Strength and Sports Therapy', '-0N2xTi69t8']],
   b_suitcase: [['Suitcase Carry | Proper Form Tutorial for Core & Grip Strength', 'FIT.nl', 'jKnLY_MXIoA']],
   b_tkpulldown: [['Tall-Kneeling Lat Pulldown', 'Mike Robertson', 'u7ItkZ69kJo']],
   x_hipthrust: [['How To Perform A Dumbbell Hip Thrust', 'Mind Pump TV', 'fv6EfDZ0E28']],
-  h_bw_birddog: [['Bird Dogs Level 1 - "McGill Big 3"', 'Brian Ellicott - Brisbane Back Pain Program', '0NTYiTOq0Nw']]
+  h_bw_birddog: [['Stuart McGill Big 3 Exercises: Bird Dog (certified McGill Method Practitioner)', 'InVivo Spine', 'LB3e4JBpNrw']],
+  // v5.6.1 video audit: every exercise the app can show (routines, swaps, no-gym, phases, cardio) has a short, checked form video
+  home_2: [['Bodyweight Box Squat | Step-by-Step Tutorial', 'Physio Plus Fitness', '7LpLZOdz68A', 'Squat to a chair'], ['How to do a wall sit', 'YOGABODY', 'mDdLC-yKudY', 'Wall sit']],
+  home_3: [['How to Do a Glute Bridge Exercise: A Guide from Physical Therapists', 'Hinge Health', 'PhTDzR0TpZs']],
+  x_pushdown: [['The Perfect Triceps Pushdown', 'Andrew Kwong (DeltaBolic)', '1FjkhpZsaxc']],
+  x_dbcurl: [['PERFECT Bicep Curl Form Tips', 'Andrew Kwong (DeltaBolic)', 'MKWBV29S6c0']],
+  x_dbtri: [['The PERFECT Overhead DB Tricep Extension', 'Andrew Kwong (DeltaBolic)', 'b_r_LW4HEcM']],
+  x_cablerow: [['Cable Row Form Tips', 'Andrew Kwong (DeltaBolic)', 'qD1WZ5pSuvk']],
+  x_dbrow: [['Single Arm Supported Dumbbell Row', 'Renaissance Periodization', 'DMo3HJoawrU']],
+  x_cablepress: [['How to do a Standing Cable Chest Press', 'Tiger Fitness', 'YW_bpL2Eewk']],
+  x_dbfly: [['How To Do A Dumbbell Chest Fly', 'PureGym', 'Nhvz9EzdJ4U']],
+  x_cablelat: [['How To Do Cable Lateral Raises', 'PureGym', 'Z5FA9aq3L6A']],
+  x_cablecurl: [['Cable Bicep Curl', 'TurnFit - Vancouver Personal Trainers', 'rfRdD5PKrko']],
+  x_bike: [['How To Properly Use The Upright Bike', 'Live Lean TV Daily Exercises', 'fW-gDFOLaCk']],
+  x_elliptical: [['Proper Form on an Elliptical', 'LIVESTRONG', '3pCdU1XkNm8']],
+  x_recbike: [['How To Properly Use The Recumbent Bike', 'Live Lean TV Daily Exercises', 'ckJRUKyJ8cI']],
+  h_walk: [['Marching in Place', 'A Pocket Full of Exercise', 'Ac8M_Osjy6s']],
+  h_dbfloorpress: [['How To Do A Dumbbell Floor Press', 'PureGym', 'T0Y3OBF1bNI']],
+  h_dbfloorfly: [['How To Do A Dumbbell Floor Fly', 'PureGym', 'bgC53-J-6gA']],
+  h_bw_closepush: [['Close Grip Pushup', 'Atomic Athlete', '2cdIRe5tcqI']],
+  h_dbrow: [['How To Do Single Arm Dumbbell Rows', 'PureGym', 'ZRSGpBUVcNw']],
+  h_dbpullover: [['Dumbbell Pullover on Floor', 'The Active Life', 'ieFKuQAGYIA']],
+  h_bw_snow: [['Reverse Snow Angel | Exercise Of The Week', 'Advanced Spine & Sports Care', 'R4iO4gXC_TY']],
+  h_chairpress: [['DB Seated Shoulder Press (w/ back support)', 'Brian DeBaets', 'xH1FmcGZi5M']],
+  h_bw_pike: [['How to do a Pike Push-Up', 'National Academy of Sports Medicine (NASM)', 'XckEEwa1BPI']],
+  h_bw_ytw: [['Prone Y T W', 'The Active Life', 'QdGTI4Lshg4']],
+  h_bw_wallangel: [['Wall Angel', 'Rehab My Patient', 'cvx06snMQ3A']],
+  h_bw_towelcurl: [['Isometric Towel Bicep Curl', 'ForeverStrong Fitness', '2wxdLcxQjHI']],
+  h_dbboxsquat: [['Box Goblet Squat', 'OPEX Fitness', 'uzjfcTvgpoc']],
+  h_dbsplit: [['Dumbbell Split Squat', 'OPEX Fitness', 'Wcmg-3iHwjQ']],
+  h_bw_split: [['Split Squat', 'OPEX Fitness', 'Py2Qeg-D5T0']],
+  h_bw_revlunge: [['How To Reverse Lunge', 'PureGym', 'xrPteyQLGAo']],
+  h_dbbridge: [['How To Do A Glute Bridge With A Dumbbell', 'PureGym', 'cruqsnAyU6A']],
+  h_bw_slbridge: [['Single Leg Bridge', 'MedStar Health', 'AVAXhy6pl7o']],
+  h_bw_hamslide: [['Towel Sliding Hamstring Curl', 'Gillian Gelinas', 'cjtsLDniFpk']],
+  h_bw_calf: [['Single-Leg Calf Raise', 'Hospital for Special Surgery', 'qPd73snQfUs']]
 });
 EXLIB.x_hipthrust.setupTip = 'Upper back on the bench edge, dumbbell on your hips. Tuck your pelvis, drive through your heels and stop when hips line up with knees and shoulders — ribs down, no arching at the top.';
 
@@ -6170,12 +6223,33 @@ function backCareSheetHTML(iso) {
         <button class="btn btn-sm btn-soft" data-act="bc-round" onclick="addBackRound('${iso}',1)">${ic('plus', 'w-4 h-4', 2.6)}Round</button></div>
       <p class="text-[12.5px] text-mute leading-snug">Slow and controlled, all quiet floor work. Stop any move that causes sharp, pinching or leg pain.</p>
       <div class="space-y-2.5">${BACK_CARE.filter(m => !m.opt).map(m => bcRowHTML(iso, m, w)).join('')}</div>
-      <p class="label-xs pt-1">Optional finishers</p>
+      <p class="label-xs pt-1" data-testid="bc-finishers">${gym ? 'Optional finishers · after your last lift, not before' : 'Optional finishers'}</p>
       <div class="space-y-2.5">${BACK_CARE.filter(m => m.opt).map(m => bcRowHTML(iso, m, w)).join('')}</div>
       <button class="btn btn-ghost w-full" data-act="back-info" onclick="openBackInfo()">${ic('info', 'w-5 h-5')}About your back</button>
       <p class="text-[11.5px] text-mute leading-snug text-center">This doesn’t replace your doctor or physical therapist.</p></div>`;
 }
-function openBackCare(iso) { openSheet(backCareSheetHTML(iso || getTodayISO())); }
+function openBackCare(iso, focus) {
+  openSheet(backCareSheetHTML(iso || getTodayISO()));
+  if (focus === 'fin') setTimeout(() => { const e = $('sheetPanel') && $('sheetPanel').querySelector('[data-testid="bc-finishers"]'); if (e) e.scrollIntoView({ block: 'start' }); }, 60);
+}
+// v5.6.1: in the guided session, Back Care comes first (before the first lift) and the optional band finishers come after the lifts
+function backLiftState(iso, r) {
+  const b = getDateLogBucket(iso), core = r.exercises.filter(e => exMeta(e).kind !== 'cardio');
+  const any = r.exercises.some(e => exDoneCount(b, e) > 0), lifted = core.length > 0 && core.every(e => exDone(b, e));
+  return { any, lifted };
+}
+function backFinDone(iso) { const d = backCareRec(iso).done; return BACK_CARE.some(m => m.opt && d.includes(m.id)); }
+function backSessionHTML(iso, r) {
+  if (!r || r.type !== 'gym') return '';
+  const st = backLiftState(iso, r), done = backCareComplete(iso);
+  if (!done && !st.any) return `<div class="card p-3.5 flex items-center gap-3 bc-first" data-testid="sess-backcare"><span class="w-10 h-10 rounded-xl bg-accentsoft text-accentink flex items-center justify-center shrink-0">${ic('heart', 'w-5 h-5')}</span>
+    <div class="min-w-0 flex-1"><p class="text-[14.5px] font-bold text-ink leading-snug">Step 1 · Back Care warm-up</p><p class="text-[12px] text-mute leading-snug">Before your first lift · 2–3 min easy walk or bike, then 8–10 min</p></div>
+    <button class="btn btn-sm btn-primary" data-act="sess-backcare" onclick="openBackCare('${iso}')">${backCareCount(iso) ? 'Continue' : 'Start'}</button></div>`;
+  if (st.lifted && !backFinDone(iso)) return `<div class="card p-4 flex items-center gap-3" data-testid="sess-bfin"><span class="w-10 h-10 rounded-xl bg-card2 text-mute flex items-center justify-center shrink-0">${ic('heart', 'w-5 h-5')}</span>
+    <div class="min-w-0 flex-1"><p class="label-xs">Optional · after your lifts</p><p class="text-[14.5px] font-bold text-ink leading-snug">Back Care finishers</p><p class="text-[12px] text-mute leading-snug">Banded clamshell, band Pallof press or banded abduction · 2–3 min</p></div>
+    <button class="btn btn-sm btn-soft" data-act="sess-bfin" onclick="openBackCare('${iso}','fin')">Open</button></div>`;
+  return '';
+}
 
 // ---------------------------------------------------------------- pain check-in ----
 let bpDraft = { iso: '', score: null, sharp: false, radiate: false, numb: false };
@@ -6193,7 +6267,7 @@ function backCheckHTML(iso) {
     ${painScaleHTML(d.score, `bpScore`, 'pain-scale')}
     <div class="flex flex-wrap gap-1.5">${flag('sharp', 'Sharp')}${flag('radiate', 'Spreads down a leg')}${flag('numb', 'Numbness or tingling')}</div>
     ${stop ? `<div class="callout warn" data-testid="back-stop">${ic('alert', 'w-5 h-5')}<p class="text-[13px] leading-snug"><b>Back Care only today.</b> ${d.score !== null && d.score >= 6 ? `Pain ${d.score}/10 is too high to lift.` : 'Sharp or leg symptoms mean skip the weights.'} Do the gentle routine, walk if it feels OK, and ${leg ? 'book a visit with your doctor or physical therapist about the leg symptoms.' : 'see your doctor or physical therapist if this doesn’t settle in a few days.'}</p></div>${backRedFlagsHTML()}
-      <div class="grid gap-2"><button class="btn btn-primary" data-act="backcare-only" onclick="backCareInstead('${iso}')">${ic('heart', 'w-5 h-5')}Do Back Care instead</button><button class="btn btn-ghost" data-act="train-easy" onclick="pickCheckin('${iso}','beat')">Train anyway, very light (−1 set, no go-ups)</button></div>`
+      <div class="grid gap-2"><button class="btn btn-primary" data-act="backcare-only" onclick="backCareInstead('${iso}')">${ic('heart', 'w-5 h-5')}Do Back Care instead</button><p class="text-[12px] text-mute leading-snug text-center">No weights today. If it settles, log a lower score tomorrow and lifting comes back.</p></div>`
       : d.score !== null && d.score >= 4 ? `<p class="text-[12.5px] text-amberink leading-snug" data-testid="back-moderate">Moderate today: train, but no go-ups. Stop any move that hurts more.</p>` : ''}</div>`;
 }
 function bpRerender() { if (sheetOpen() && $('sheetPanel').querySelector('[data-testid="checkin-sheet"]')) { const sc = $('sheetPanel').scrollTop; openCheckinSheet(bpDraft.iso); $('sheetPanel').scrollTop = sc; } }
@@ -6306,6 +6380,13 @@ function backProgressHTML() {
     <div class="card2 p-3">${painChartSVG(days)}</div>
     <p class="text-[12.5px] text-mute leading-snug">Dashed green line = 3/10, the level for bringing the hinge back. Green marks = Back Care done.</p>
     <p class="text-[12.5px] leading-snug ${g.ok ? 'text-accentink' : 'text-mute'}" data-testid="hinge-gate"><b>Hip hinge:</b> ${w < 5 ? 'light pull-throughs only until week 5.' : g.ok ? 'unlocked — ' + esc(g.why) + '.' : 'stays light — ' + esc(g.why) + '.'}</p></div>`;
+}
+
+// v5.6.1: a pain-6+ (or sharp / leg-symptom) day is Back Care only, whichever button starts the workout
+function backBlocksLifting(iso) {
+  const r = resolveRoutine(iso); if (!r || r.type !== 'gym' || !backStop(appState.backPain[iso])) return false;
+  const s = appState.session, b = appState.dateLogs[iso];
+  return !((s && s.active && s.date === iso) || (b && b.sets && Object.values(b.sets).some(Boolean)));
 }
 
 // =========================================================================
